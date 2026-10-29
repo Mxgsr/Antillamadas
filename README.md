@@ -18,6 +18,13 @@ Todo funciona dentro del teléfono: no hay cuentas, nube ni envío de datos. El 
 
 ## Instalación
 
+### Descargar el APK (recomendado)
+
+1. Descarga **[Antillamadas-Chile-v2.1.apk](https://github.com/Mxgsr/Antillamadas/releases/latest/download/Antillamadas-Chile-v2.1.apk)** desde la [página de Releases](https://github.com/Mxgsr/Antillamadas/releases/latest).
+2. Ábrelo en el teléfono y permite instalar apps de fuentes externas cuando Android lo pida.
+
+El APK está firmado por el autor. Puedes comprobarlo con `apksigner verify --print-certs`; el SHA-256 del certificado debe ser `dd7e9ed0d74b234f9dad70f8df7329777970ddfcb813a2cea07518b12d20b91d`.
+
 ### Compilar desde el código
 
 ```bash
