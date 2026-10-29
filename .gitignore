@@ -1,0 +1,30 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+
+# Firma de autor (nunca subir)
+antillamadas-autor.p12
+firmar_mi_app.sh
+
+# Artefactos y cachés locales
+*.apk
+*.aab
+.kotlin/
+selector-modelo-log.md
