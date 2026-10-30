@@ -38,6 +38,7 @@ class AntillamadasScreeningService : CallScreeningService() {
         settings = snapshot.settings,
         isSavedContact = isSavedContact,
         recentBlockedHistory = snapshot.blockedHistory,
+        communitySpamList = snapshot.communitySpamList,
       )
 
       when (decision) {

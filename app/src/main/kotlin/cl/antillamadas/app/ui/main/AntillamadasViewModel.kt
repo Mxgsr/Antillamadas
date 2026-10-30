@@ -3,6 +3,9 @@ package cl.antillamadas.app.ui.main
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import cl.antillamadas.app.data.CommunitySpamSyncService
+import cl.antillamadas.app.data.CommunitySyncResult
 import cl.antillamadas.app.data.ImportResult
 import cl.antillamadas.app.data.LocalSpamRepository
 import cl.antillamadas.app.data.SpamStoreData
@@ -11,7 +14,10 @@ import cl.antillamadas.app.domain.FilterDecision
 import cl.antillamadas.app.domain.MatchType
 import cl.antillamadas.app.domain.PhoneNumberNormalizer
 import cl.antillamadas.app.domain.RuleKind
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * El ViewModel actúa como puente entre los datos guardados (`LocalSpamRepository`)
@@ -22,6 +28,9 @@ class AntillamadasViewModel(
 ) : ViewModel() {
 
   val storeState: StateFlow<SpamStoreData> = repository.state
+
+  private val _isSyncingCommunity = MutableStateFlow(false)
+  val isSyncingCommunity: StateFlow<Boolean> = _isSyncingCommunity.asStateFlow()
 
   fun toggleRule(ruleId: String, enabled: Boolean) {
     repository.setRuleEnabled(ruleId, enabled)
@@ -143,7 +152,33 @@ class AntillamadasViewModel(
       settings = current.settings,
       isSavedContact = false,
       recentBlockedHistory = current.blockedHistory,
+      communitySpamList = current.communitySpamList,
     )
+  }
+
+  fun setCommunitySyncEnabled(enabled: Boolean) {
+    repository.setCommunitySyncEnabled(enabled)
+  }
+
+  fun syncCommunityDatabase(onFinished: (CommunitySyncResult) -> Unit) {
+    if (_isSyncingCommunity.value) return
+    viewModelScope.launch {
+      _isSyncingCommunity.value = true
+      try {
+        val url = repository.snapshot().settings.communitySourceUrl
+        val result = CommunitySpamSyncService.fetchAndParse(url)
+        if (result is CommunitySyncResult.Success) {
+          repository.updateCommunitySpamList(result.entries, System.currentTimeMillis())
+        }
+        onFinished(result)
+      } finally {
+        _isSyncingCommunity.value = false
+      }
+    }
+  }
+
+  fun clearCommunityDatabase() {
+    repository.clearCommunitySpamList()
   }
 
   companion object {

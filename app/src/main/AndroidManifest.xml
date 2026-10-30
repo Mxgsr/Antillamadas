@@ -4,6 +4,9 @@
     <!-- Permiso opcional y 100% local para no bloquear números guardados en tus Contactos -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- Permiso opcional para descarga bajo demanda de listas comunitarias de spam (Opción A: inactivo por defecto) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

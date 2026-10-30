@@ -4,6 +4,7 @@ import android.content.Context
 import cl.antillamadas.app.domain.BlockedCallRecord
 import cl.antillamadas.app.domain.BuiltInChileRules
 import cl.antillamadas.app.domain.CallFilterEngine
+import cl.antillamadas.app.domain.CommunitySpamEntry
 import cl.antillamadas.app.domain.FilterRule
 import cl.antillamadas.app.domain.FilterSettings
 import cl.antillamadas.app.domain.MatchType
@@ -33,6 +34,7 @@ data class SpamStoreData(
   val blockedHistory: List<BlockedCallRecord> = emptyList(),
   val observedPrefixHits: List<ObservedPrefixHit> = emptyList(),
   val dismissedSuggestedPrefixes: Set<String> = emptySet(),
+  val communitySpamList: List<CommunitySpamEntry> = emptyList(),
 )
 
 /**
@@ -247,6 +249,32 @@ class LocalSpamRepository(
     }
   }
 
+  fun setCommunitySyncEnabled(enabled: Boolean) {
+    updateStore { current ->
+      current.copy(settings = current.settings.copy(communitySyncEnabled = enabled))
+    }
+  }
+
+  fun updateCommunitySpamList(entries: List<CommunitySpamEntry>, timestampMillis: Long) {
+    updateStore { current ->
+      current.copy(
+        communitySpamList = entries.take(MAX_COMMUNITY_ITEMS),
+        settings = current.settings.copy(
+          lastCommunitySyncMillis = timestampMillis,
+        ),
+      )
+    }
+  }
+
+  fun clearCommunitySpamList() {
+    updateStore { current ->
+      current.copy(
+        communitySpamList = emptyList(),
+        settings = current.settings.copy(lastCommunitySyncMillis = null),
+      )
+    }
+  }
+
   fun deleteHistoryItem(recordId: String) {
     updateStore { current ->
       current.copy(
@@ -345,7 +373,7 @@ class LocalSpamRepository(
       totalCustomCount = combinedCustom.size
 
       current.copy(
-        settings = parsed.settings,
+        settings = sanitizeImportedSettings(imported = parsed.settings, current = current.settings),
         rules = mergedBuiltIns + combinedCustom,
       )
     }
@@ -364,6 +392,21 @@ class LocalSpamRepository(
       label = sanitizedLabel,
       pattern = sanitizedPattern,
       isBuiltIn = false,
+    )
+  }
+
+  /**
+   * Decide qué ajustes de un archivo importado se aceptan y cuáles se conservan del teléfono.
+   * Un respaldo puede venir de otra persona, así que no todo lo que trae es confiable.
+   */
+  private fun sanitizeImportedSettings(imported: FilterSettings, current: FilterSettings): FilterSettings {
+    // La descarga comunitaria y la pausa solo se cambian desde la app, con consentimiento:
+    // así un respaldo ajeno no puede apuntar a otra lista ni apagar la protección en silencio.
+    return imported.copy(
+      protectionEnabled = current.protectionEnabled,
+      communitySyncEnabled = current.communitySyncEnabled,
+      communitySourceUrl = current.communitySourceUrl,
+      lastCommunitySyncMillis = current.lastCommunitySyncMillis,
     )
   }
 
@@ -454,6 +497,7 @@ class LocalSpamRepository(
       blockedHistory = data.blockedHistory.take(MAX_HISTORY_ITEMS),
       observedPrefixHits = safeObserved,
       dismissedSuggestedPrefixes = safeDismissed,
+      communitySpamList = data.communitySpamList.take(MAX_COMMUNITY_ITEMS),
     )
   }
 
@@ -486,6 +530,7 @@ class LocalSpamRepository(
     const val MAX_OBSERVED_HITS = 400
     const val MAX_DISMISSED_PREFIXES = 200
     const val MAX_CUSTOM_RULES = 500
+    const val MAX_COMMUNITY_ITEMS = 5000
     const val MAX_IMPORT_BYTES = 256 * 1024
     const val MAX_LABEL_LENGTH = 80
     const val MAX_RAW_PATTERN_LENGTH = 40

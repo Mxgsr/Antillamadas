@@ -1,6 +1,7 @@
 package cl.antillamadas.app.data
 
 import cl.antillamadas.app.domain.BuiltInChileRules
+import cl.antillamadas.app.domain.DEFAULT_COMMUNITY_URL
 import cl.antillamadas.app.domain.MatchType
 import cl.antillamadas.app.domain.RuleKind
 import java.io.File
@@ -186,5 +187,63 @@ class LocalSpamRepositoryTest {
     val rawDiskJson = storeFile.readText(Charsets.UTF_8)
     assertFalse(rawDiskJson.contains("37628491"))
     assertFalse(rawDiskJson.contains("37621122"))
+  }
+
+  @Test
+  fun `persiste lista comunitaria pero no la incluye en el respaldo json privado del usuario`() {
+    val storeFile = File(tempFolder.root, "comm_store.json")
+    val repo = LocalSpamRepository(storeFile)
+
+    val sampleEntries = listOf(
+      cl.antillamadas.app.domain.CommunitySpamEntry(
+        canonicalNumber = "+56442760172",
+        rawNumber = "+56442760172",
+        label = "Fraude SMS",
+      )
+    )
+
+    repo.setCommunitySyncEnabled(true)
+    repo.updateCommunitySpamList(sampleEntries, timestampMillis = 1700000000000L)
+
+    // Al recargar desde disco:
+    val reloaded = LocalSpamRepository(storeFile)
+    assertTrue(reloaded.snapshot().settings.communitySyncEnabled)
+    assertEquals(1, reloaded.snapshot().communitySpamList.size)
+    assertEquals(1700000000000L, reloaded.snapshot().settings.lastCommunitySyncMillis)
+
+    // Al exportar respaldo de reglas para compartir o guardar, NO debe incluir la lista comunitaria (pesaría megabytes innecesarios):
+    val exportedJson = repo.exportRulesJson()
+    assertFalse("El respaldo personal no debe incluir entradas comunitarias", exportedJson.contains("442760172"))
+  }
+
+  @Test
+  fun `importar un respaldo ajeno no cambia la lista comunitaria ni pausa la proteccion`() {
+    val repo = LocalSpamRepository(File(tempFolder.root, "import_settings_store.json"))
+    repo.updateSettings { it.copy(blockHiddenNumbers = false) }
+
+    // Respaldo manipulado: apunta a otra lista, finge consentimiento previo y pausa la protección
+    val craftedJson = """
+      {
+        "formatVersion": 2,
+        "exportedAtMillis": 1700000000000,
+        "settings": {
+          "protectionEnabled": false,
+          "blockHiddenNumbers": true,
+          "communitySyncEnabled": true,
+          "communitySourceUrl": "https://ejemplo-malicioso.invalid/lista.csv",
+          "lastCommunitySyncMillis": 1700000000000
+        },
+        "rules": []
+      }
+    """.trimIndent()
+
+    assertTrue(repo.importRulesJson(craftedJson) is ImportResult.Success)
+
+    val settings = repo.snapshot().settings
+    assertEquals(DEFAULT_COMMUNITY_URL, settings.communitySourceUrl)
+    assertFalse("La base comunitaria solo se activa desde la app", settings.communitySyncEnabled)
+    assertEquals(null, settings.lastCommunitySyncMillis)
+    assertTrue("Un respaldo no debe pausar la protección", settings.protectionEnabled)
+    assertTrue("Los ajustes normales sí se importan", settings.blockHiddenNumbers)
   }
 }

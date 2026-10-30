@@ -53,6 +53,20 @@ data class FilterSettings(
   val allowRepeatedCalls: Boolean = false,
   val blockHiddenNumbers: Boolean = false,
   val blockInternationalNumbers: Boolean = false,
+  val communitySyncEnabled: Boolean = false,
+  val communitySourceUrl: String = DEFAULT_COMMUNITY_URL,
+  val lastCommunitySyncMillis: Long? = null,
+)
+
+/**
+ * Entrada individual de la base de datos comunitaria de spam (ej. SpamChile).
+ * Se guarda de forma separada a las reglas del usuario para poder actualizarse en 1 toque.
+ */
+@Serializable
+data class CommunitySpamEntry(
+  val canonicalNumber: String,
+  val rawNumber: String,
+  val label: String,
 )
 
 /**
@@ -93,6 +107,8 @@ sealed interface FilterDecision {
     val matchedRuleId: String? = null,
   ) : FilterDecision
 }
+
+const val DEFAULT_COMMUNITY_URL = "https://raw.githubusercontent.com/racuna/SpamChile/main/ChileSpam.csv"
 
 /**
  * Reglas preconfiguradas según la normativa de numeración de Subtel en Chile.

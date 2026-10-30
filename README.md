@@ -77,7 +77,9 @@ Toca **Agregar patrón o excepción** y elige:
 
 El **simulador instantáneo** te dice qué haría el filtro con cualquier número antes de que te llame.
 
-**Respaldo offline:** *Exportar* e *Importar* guardan o restauran tus reglas en un archivo `.json`, sin nube y sin incluir tu historial.
+**Base comunitaria SpamChile (desde la v2.2):** opcional y apagada por defecto. Al activarla descarga la [lista pública de números reportados en Chile](https://github.com/racuna/SpamChile) y bloquea esos números. Solo se descarga cuando tocas *Actualizar lista*. Tus excepciones y tus contactos siempre tienen prioridad sobre ella.
+
+**Respaldo offline:** *Exportar* e *Importar* guardan o restauran tus reglas en un archivo `.json`, sin nube y sin incluir tu historial. Por seguridad, importar un respaldo no cambia la base comunitaria ni pausa la protección.
 
 ### Estadísticas
 
@@ -91,8 +93,9 @@ Cada llamada bloqueada con hora, motivo y cuántas veces insistió. Puedes busca
 
 ## Privacidad
 
-- Sin conexión a internet ni servidores.
-- El único permiso es `READ_CONTACTS`, opcional, para no bloquear a tus contactos.
+- Sin cuentas ni servidores propios. La app no envía tus datos a ninguna parte.
+- La única conexión a internet es la descarga opcional de la base comunitaria (desde la v2.2): solo por `https`, solo cuando tú la pides, y no envía ningún dato tuyo.
+- Permisos: `READ_CONTACTS` (opcional, para no bloquear a tus contactos) e `INTERNET` (desde la v2.2, solo para esa descarga).
 - Para detectar call centers se guarda una huella anónima del inicio del número, no el número completo de quien llama.
 - La copia de seguridad del sistema está desactivada para que los datos no salgan del teléfono.
 
@@ -109,6 +112,8 @@ Estructura principal (`app/src/main/kotlin/cl/antillamadas/app/`):
 - `data/`: almacenamiento local de reglas e historial.
 - `screening/`: `CallScreeningService` que rechaza las llamadas y el botón de la cortina.
 - `ui/`: interfaz en Jetpack Compose (Material 3).
+
+¿Eres nuevo en Android? Lee [Cómo funciona Antillamadas por dentro](docs/COMO-FUNCIONA.md).
 
 ### Firma de release
 

@@ -237,4 +237,59 @@ class CallFilterEngineTest {
     assertEquals("937628491", PhoneNumberNormalizer.formatForSernac("+56 9 3762 8491"))
     assertEquals("", PhoneNumberNormalizer.formatForSernac("unknown"))
   }
+
+  @Test
+  fun `bloquea numeros de la base comunitaria solo cuando la opcion esta activa`() {
+    val communityList = listOf(
+      CommunitySpamEntry(
+        canonicalNumber = "+56442760172",
+        rawNumber = "+56442760172",
+        label = "Fraude SMS",
+      ),
+      CommunitySpamEntry(
+        canonicalNumber = "+56965130021",
+        rawNumber = "56965130021",
+        label = "Robocaller",
+      ),
+    )
+
+    // 1. Con la opción desactivada (valor por defecto), el número móvil no se bloquea por comunidad:
+    val disabledSettings = FilterSettings(communitySyncEnabled = false)
+    val decisionDisabled = CallFilterEngine.evaluate(
+      rawNumber = "+56 9 6513 0021",
+      rules = defaultRules,
+      settings = disabledSettings,
+      communitySpamList = communityList,
+    )
+    assertTrue(decisionDisabled is FilterDecision.Allow)
+
+    // 2. Con la opción activada, se bloquea con la etiqueta comunitaria:
+    val enabledSettings = FilterSettings(communitySyncEnabled = true)
+    val decisionEnabled = CallFilterEngine.evaluate(
+      rawNumber = "9 6513 0021",
+      rules = defaultRules,
+      settings = enabledSettings,
+      communitySpamList = communityList,
+    )
+    assertTrue(decisionEnabled is FilterDecision.Block)
+    val block = decisionEnabled as FilterDecision.Block
+    assertEquals("community_spam", block.matchedRuleId)
+    assertTrue(block.reason.contains("Robocaller"))
+
+    // 3. Excepción de lista blanca del usuario SIEMPRE tiene prioridad sobre la comunidad:
+    val allowException = FilterRule(
+      id = "allow_robocaller",
+      label = "Excepción autorizada",
+      pattern = "965130021",
+      matchType = MatchType.EXACT,
+      kind = RuleKind.ALLOW,
+    )
+    val decisionWithAllow = CallFilterEngine.evaluate(
+      rawNumber = "+56 9 6513 0021",
+      rules = defaultRules + allowException,
+      settings = enabledSettings,
+      communitySpamList = communityList,
+    )
+    assertTrue("La lista blanca del usuario debe tener prioridad", decisionWithAllow is FilterDecision.Allow)
+  }
 }

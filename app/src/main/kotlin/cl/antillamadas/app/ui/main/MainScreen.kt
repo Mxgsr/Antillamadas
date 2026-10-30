@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.antillamadas.app.R
+import cl.antillamadas.app.data.CommunitySyncResult
 import cl.antillamadas.app.data.ImportResult
 import cl.antillamadas.app.data.LocalSpamRepository
 import cl.antillamadas.app.data.SpamStoreData
@@ -64,10 +65,10 @@ import java.io.InputStream
 import kotlinx.coroutines.launch
 
 enum class AppTab(val title: String, val iconRes: Int) {
-  PROTECTION("Protección", R.drawable.ic_shield_check),
   STATS("Estadísticas", R.drawable.ic_stats),
-  RULES("Reglas", R.drawable.ic_rules),
+  PROTECTION("Protección", R.drawable.ic_shield_check),
   HISTORY("Historial", R.drawable.ic_history),
+  RULES("Reglas", R.drawable.ic_rules),
 }
 
 @Composable
@@ -79,6 +80,7 @@ fun AntillamadasScreen(
     factory = AntillamadasViewModel.factory(context),
   )
   val storeData by viewModel.storeState.collectAsStateWithLifecycle()
+  val isSyncingCommunity by viewModel.isSyncingCommunity.collectAsStateWithLifecycle()
 
   var isRoleHeld by remember { mutableStateOf(CallRoleHelper.isCallScreeningRoleHeld(context)) }
   var hasContactsPermission by remember {
@@ -232,6 +234,26 @@ fun AntillamadasScreen(
       ok
     },
     onDeleteRule = viewModel::deleteRule,
+    onToggleCommunitySync = { enabled ->
+      viewModel.setCommunitySyncEnabled(enabled)
+      scope.launch {
+        snackbarHostState.showSnackbar(
+          if (enabled) "Base comunitaria activada." else "Base comunitaria desactivada."
+        )
+      }
+    },
+    onSyncCommunity = {
+      viewModel.syncCommunityDatabase { result ->
+        scope.launch {
+          val msg = when (result) {
+            is CommunitySyncResult.Success ->
+              "Lista comunitaria actualizada (${result.entries.size} números activos)."
+            is CommunitySyncResult.Error -> result.message
+          }
+          snackbarHostState.showSnackbar(msg)
+        }
+      }
+    },
     onToggleAllowContacts = viewModel::setAllowContacts,
     onToggleAllowRepeatedCalls = viewModel::setAllowRepeatedCalls,
     onToggleBlockHidden = viewModel::setBlockHiddenNumbers,
@@ -280,10 +302,13 @@ fun AntillamadasContent(
   onRequestContactsPermission: () -> Unit = {},
   onToggleProtectionEnabled: (Boolean) -> Unit = {},
   onRequestAddQuickTile: () -> Unit = {},
+  isSyncingCommunity: Boolean = false,
   onToggleRule: (String, Boolean) -> Unit = { _, _ -> },
   onAddRule: (String, String, MatchType, RuleKind) -> Boolean = { _, _, _, _ -> true },
   onEditRule: (String, String, String, MatchType, RuleKind) -> Boolean = { _, _, _, _, _ -> true },
   onDeleteRule: (String) -> Unit = {},
+  onToggleCommunitySync: (Boolean) -> Unit = {},
+  onSyncCommunity: () -> Unit = {},
   onToggleAllowContacts: (Boolean) -> Unit = {},
   onToggleAllowRepeatedCalls: (Boolean) -> Unit = {},
   onToggleBlockHidden: (Boolean) -> Unit = {},
@@ -397,6 +422,13 @@ fun AntillamadasContent(
     },
   ) { innerPadding ->
     when (selectedTab) {
+      AppTab.STATS -> StatsTab(
+        storeData = storeData,
+        onBlockSuggestedPrefix = onBlockSuggestedPrefix,
+        onDismissSuggestion = onDismissSuggestion,
+        modifier = Modifier.padding(innerPadding),
+      )
+
       AppTab.PROTECTION -> ProtectionTab(
         storeData = storeData,
         isRoleHeld = isRoleHeld,
@@ -413,30 +445,26 @@ fun AntillamadasContent(
         modifier = Modifier.padding(innerPadding),
       )
 
-      AppTab.STATS -> StatsTab(
-        storeData = storeData,
-        onBlockSuggestedPrefix = onBlockSuggestedPrefix,
-        onDismissSuggestion = onDismissSuggestion,
-        modifier = Modifier.padding(innerPadding),
-      )
-
-      AppTab.RULES -> RulesTab(
-        storeData = storeData,
-        onToggleRule = onToggleRule,
-        onAddRule = onAddRule,
-        onEditRule = onEditRule,
-        onDeleteRule = onDeleteRule,
-        onExportRules = onExportRules,
-        onImportRules = onImportRules,
-        modifier = Modifier.padding(innerPadding),
-      )
-
       AppTab.HISTORY -> HistoryTab(
         blockedCalls = storeData.blockedHistory,
         onCopyForSernac = onCopyForSernac,
         onAllowNumber = onAllowNumberFromHistory,
         onDeleteRecord = onDeleteHistoryItem,
         onClearAll = onClearHistory,
+        modifier = Modifier.padding(innerPadding),
+      )
+
+      AppTab.RULES -> RulesTab(
+        storeData = storeData,
+        isSyncingCommunity = isSyncingCommunity,
+        onToggleRule = onToggleRule,
+        onAddRule = onAddRule,
+        onEditRule = onEditRule,
+        onDeleteRule = onDeleteRule,
+        onToggleCommunitySync = onToggleCommunitySync,
+        onSyncCommunity = onSyncCommunity,
+        onExportRules = onExportRules,
+        onImportRules = onImportRules,
         modifier = Modifier.padding(innerPadding),
       )
     }

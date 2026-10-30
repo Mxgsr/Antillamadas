@@ -16,6 +16,7 @@ object CallFilterEngine {
     settings: FilterSettings = FilterSettings(),
     isSavedContact: Boolean = false,
     recentBlockedHistory: List<BlockedCallRecord> = emptyList(),
+    communitySpamList: List<CommunitySpamEntry> = emptyList(),
     nowMillis: Long = System.currentTimeMillis(),
   ): FilterDecision {
     // 0. Si el usuario puso la protección en pausa temporal (desde la app o el botón rápido de Android):
@@ -66,6 +67,21 @@ object CallFilterEngine {
         return FilterDecision.Block(
           reason = blockRule.label,
           matchedRuleId = blockRule.id,
+        )
+      }
+    }
+
+    // 5b. Si está activa la base de datos comunitaria de Chile (SpamChile), revisamos reportes:
+    if (settings.communitySyncEnabled && communitySpamList.isNotEmpty()) {
+      val callerKey = PhoneNumberNormalizer.canonicalKey(phone.raw)
+      val communityMatch = communitySpamList.find { it.canonicalNumber == callerKey }
+      if (communityMatch != null) {
+        if (isRepeatedUrgentAttempt(phone, matchedRuleId = "community_spam", settings, recentBlockedHistory, nowMillis)) {
+          return FilterDecision.Allow(reason = "Permitido por 2.º intento seguido (< 3 min)")
+        }
+        return FilterDecision.Block(
+          reason = "Comunidad SpamChile: ${communityMatch.label}",
+          matchedRuleId = "community_spam",
         )
       }
     }
